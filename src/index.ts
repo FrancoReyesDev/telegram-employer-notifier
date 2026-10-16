@@ -2,7 +2,8 @@ import { Hono } from "hono"
 export { CrossChexRateLimiter } from "./rate-limiter"
 import type { CrossChexRateLimiter } from "./rate-limiter"
 import { parseWebhookPayload } from "./crosschex"
-import { saveMark } from "./marks"
+import { localTime } from "./attendance"
+import { saveMarks } from "./marks"
 import { reconcile } from "./reconcile"
 import { matchesSecret } from "./security"
 import { syncPendingDays } from "./sync"
@@ -25,22 +26,26 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 // CrossChex webhook: cada vez que alguien pone la cara en el reloj
 app.post("/webhook/crosschex", async (c) => {
-  const sign = c.req.header("authorize-sign")
-  if (!(await matchesSecret(sign, c.env.CROSSCHEX_WEBHOOK_PASSWORD))) {
-    console.warn(JSON.stringify({ message: "webhook de crosschex rechazado", signLength: sign?.length ?? 0 }))
+  if (!(await matchesSecret(c.req.header("authorize-sign"), c.env.CROSSCHEX_WEBHOOK_PASSWORD))) {
+    console.warn("aviso rechazado: contraseña incorrecta")
     return c.json({ code: "401", msg: "unauthorized" }, 401)
   }
 
-  const record = parseWebhookPayload(await c.req.json())
-  if (!record) return c.json({ code: "400", msg: "invalid payload" }, 400)
+  const body: unknown = await c.req.json()
+  const records = parseWebhookPayload(body)
+  if (!records.length) {
+    console.warn(`aviso con formato inesperado: ${JSON.stringify(body)}`)
+    return c.json({ code: "400", msg: "invalid payload" }, 400)
+  }
 
-  // Se guarda antes de responder: si falla, CrossChex reintenta
-  await saveMark(c.env.DB, record, "webhook")
+  // Se guardan antes de responder: si falla, CrossChex reintenta
+  await saveMarks(c.env.DB, records, "webhook")
+  records.forEach(({ employee, checktime }) =>
+    console.log(`fichaje: ${employee.first_name} ${employee.last_name} (${employee.workno}) ${localTime(checktime)}`),
+  )
   // Despues de responder se pasa a Odoo; si Odoo falla, queda pendiente para el proximo fichaje
   c.executionCtx.waitUntil(
-    syncPendingDays(c.env).catch((error: unknown) =>
-      console.error(JSON.stringify({ message: "no se pudo sincronizar con odoo", error: String(error) })),
-    ),
+    syncPendingDays(c.env).catch((error: unknown) => console.error(`odoo: no se pudo sincronizar: ${String(error)}`)),
   )
   return c.json({ code: "200", msg: "success" })
 })

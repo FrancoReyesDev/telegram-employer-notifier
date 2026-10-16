@@ -20,6 +20,7 @@ type OdooAttendance = {
 
 type OdooEmployee = {
   id: number
+  name: string
   active: boolean
   resource_calendar_id: [number, string] | false
 }
@@ -30,7 +31,7 @@ const DAYS_PER_RUN = 10
 // Las asistencias las crea el Worker: sin mensajes de seguimiento en el chatter
 const QUIET_CONTEXT = { context: { tracking_disable: true } }
 
-const EMPLOYEE_FIELDS = ["active", "resource_calendar_id"]
+const EMPLOYEE_FIELDS = ["name", "active", "resource_calendar_id"]
 
 const searchEmployee = async (env: SyncEnv, workno: string): Promise<OdooEmployee | undefined> => {
   const [employee] = await callOdoo<OdooEmployee[]>(env, "hr.employee", "search_read", {
@@ -44,10 +45,10 @@ const searchEmployee = async (env: SyncEnv, workno: string): Promise<OdooEmploye
 
 const createEmployee = async (env: SyncEnv, workno: string): Promise<OdooEmployee | undefined> => {
   const name = await getEmployeeName(env.DB, workno)
-  const [employeeId] = await callOdoo<number[]>(env, "hr.employee", "create", {
+  await callOdoo<number[]>(env, "hr.employee", "create", {
     vals_list: [{ name, barcode: workno, tz: "America/Argentina/Buenos_Aires" }],
   })
-  console.log(JSON.stringify({ message: "empleado creado en odoo", workno, name, employeeId }))
+  console.log(`odoo: empleado creado: ${name} (${workno})`)
   return searchEmployee(env, workno)
 }
 
@@ -104,7 +105,7 @@ const syncDay = async (env: SyncEnv, workno: string, date: string, today: string
   const dayMarks = await getDayMarks(env.DB, workno, date)
   const employee = await findOrCreateEmployee(env, workno)
   if (!employee) {
-    console.log(JSON.stringify({ message: "empleado archivado en odoo, no se sincroniza", workno, date }))
+    console.log(`odoo: el ${workno} esta archivado, no se sincroniza el ${date}`)
     return dayMarks
   }
   const [dayStart, dayEnd] = dayRangeUtc(date)
@@ -116,7 +117,7 @@ const syncDay = async (env: SyncEnv, workno: string, date: string, today: string
   ])
   // Si alguien corrigio el dia a mano en Odoo, vale lo de Odoo
   if (!existing.every(isOwnedBy(Number(env.ODOO_USER_ID)))) {
-    console.warn(JSON.stringify({ message: "dia corregido a mano en odoo, no se toca", workno, date }))
+    console.warn(`odoo: el ${date} de ${employee.name} se corrigio a mano, no se toca`)
     return dayMarks
   }
 
@@ -131,6 +132,7 @@ const syncDay = async (env: SyncEnv, workno: string, date: string, today: string
       ...QUIET_CONTEXT,
     })
   }
+  console.log(`odoo: ${employee.name} ${date}: ${attendances.length} tramo(s)`)
   return dayMarks
 }
 
@@ -144,10 +146,9 @@ export const syncPendingDays = async (env: SyncEnv) => {
     try {
       const dayMarks = await syncDay(env, workno, date, today)
       await markSynced(env.DB, dayMarks.map((mark) => mark.uuid))
-      console.log(JSON.stringify({ message: "dia sincronizado", workno, date, marks: dayMarks.length }))
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error)
-      console.error(JSON.stringify({ message: "no se pudo sincronizar el dia", workno, date, error: detail }))
+      console.error(`odoo: error en el ${date} del ${workno}: ${detail}`)
     }
   }
 }

@@ -13,7 +13,7 @@ type AttendanceRecord = {
   uuid: string
   checktype: number
   checktime: string
-  source: number
+  source?: number
   device: { serial_number: string; name: string }
   employee: {
     first_name: string
@@ -98,10 +98,16 @@ export const getAllRecords = async (
   return all
 }
 
-export const parseWebhookPayload = (body: unknown): AttendanceRecord | null => {
-  const record = (body as { payload?: AttendanceRecord })?.payload
-  if (!record?.uuid || !record.checktime || !record.employee?.workno) return null
-  return record
+// Asi llega cada marca por webhook: con check_time/check_type en vez del checktime/checktype de la API
+type WebhookRecord = Omit<AttendanceRecord, "checktime" | "checktype"> & {
+  check_time: string
+  check_type: number
 }
+
+// El webhook manda { records: [...] }; se pasan al mismo formato que la API
+export const parseWebhookPayload = (body: unknown): AttendanceRecord[] =>
+  ((body as { records?: WebhookRecord[] })?.records ?? [])
+    .filter((record) => record?.uuid && record.check_time && record.employee?.workno)
+    .map(({ check_time, check_type, ...record }) => ({ ...record, checktime: check_time, checktype: check_type }))
 
 export type { AttendanceRecord }

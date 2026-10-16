@@ -33,13 +33,7 @@ const insertMark = (db: D1Database, record: AttendanceRecord, source: MarkSource
       new Date().toISOString(),
     )
 
-// Devuelve false si la marca ya estaba: CrossChex reintenta y la consulta a la API repite marcas
-export const saveMark = async (db: D1Database, record: AttendanceRecord, source: MarkSource): Promise<boolean> => {
-  const result = await insertMark(db, record, source).run()
-  return result.meta.changes === 1
-}
-
-// Devuelve cuantas marcas eran nuevas
+// Devuelve cuantas marcas eran nuevas: CrossChex reintenta y la consulta a la API repite marcas
 export const saveMarks = async (db: D1Database, records: AttendanceRecord[], source: MarkSource): Promise<number> => {
   const batches = Array.from({ length: Math.ceil(records.length / BATCH_SIZE) }, (_, index) =>
     records.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE),

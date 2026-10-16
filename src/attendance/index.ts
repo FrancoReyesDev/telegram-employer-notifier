@@ -22,6 +22,16 @@ const localDateFormat = new Intl.DateTimeFormat("en-CA", {
 
 export const localDate = (checktime: string): string => localDateFormat.format(new Date(checktime))
 
+const localTimeFormat = new Intl.DateTimeFormat("es-AR", {
+  timeZone: "America/Argentina/Buenos_Aires",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+})
+
+// Para los logs: "13:47"
+export const localTime = (checktime: string): string => localTimeFormat.format(new Date(checktime))
+
 export const markKind = (position: number): MarkKind => (position % 2 === 0 ? "entrada" : "salida")
 
 // Recibe las marcas del dia en orden y descarta las que llegan a menos de 5 minutos de la anterior
