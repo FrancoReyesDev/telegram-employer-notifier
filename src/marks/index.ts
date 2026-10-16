@@ -60,10 +60,10 @@ export const getDayMarks = async (db: D1Database, workno: string, date: string):
   return results
 }
 
-// Dias con marcas que todavia no se pasaron a Odoo
+// Dias con marcas que todavia no se pasaron a Odoo, primero los mas recientes
 export const getPendingDays = async (db: D1Database, limit: number): Promise<PendingDay[]> => {
   const { results } = await db
-    .prepare("SELECT DISTINCT workno, local_date FROM marks WHERE synced = 0 ORDER BY local_date LIMIT ?")
+    .prepare("SELECT DISTINCT workno, local_date FROM marks WHERE synced = 0 ORDER BY local_date DESC LIMIT ?")
     .bind(limit)
     .all<PendingDay>()
   return results
