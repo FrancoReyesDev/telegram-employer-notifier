@@ -25,8 +25,8 @@ type OdooEmployee = {
   resource_calendar_id: [number, string] | false
 }
 
-// Pocos dias por fichaje para no pasarse del tiempo que tiene el Worker despues de responder
-const DAYS_PER_RUN = 10
+// Pocos dias por pasada: asi una pasada siempre termina antes de que termine la espera del proximo aviso
+const DAYS_PER_RUN = 5
 
 // Las rafagas de CrossChex (dobles toques, reintentos, marcas atrasadas) duran unos 6 segundos
 const BURST_WINDOW_MS = 10_000
