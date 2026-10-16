@@ -8,12 +8,25 @@
 	"observability": { "enabled": true },
 	"upload_source_maps": true,
 	"vars": {
-		"CROSSCHEX_API_URL": "https://api.eu.crosschexcloud.com/"
+		"CROSSCHEX_API_URL": "https://api.eu.crosschexcloud.com/",
+		"ODOO_URL": "https://rpm-motos.odoo.com",
+		// Usuario "Integracion asistencia": el Worker solo rehace las asistencias que creo el
+		"ODOO_USER_ID": "15",
+		// Dias hacia atras que trae la carga manual desde CrossChex (se pisa con --var al correrla)
+		"RECONCILE_DAYS": "2"
 	},
 	"kv_namespaces": [
 		{
 			"binding": "EMPLOYEES",
 			"id": "94e4f8001aed461babcc62d98563b9d7"
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "telegram-employer-notifier",
+			"database_id": "069dd629-92d9-404c-8c29-86b465627f7b",
+			"migrations_dir": "migrations"
 		}
 	],
 	"durable_objects": {

@@ -20,11 +20,6 @@ export class CrossChexRateLimiter extends DurableObject {
     return { data, waitedMs }
   }
 
-  async hasToken(): Promise<boolean> {
-    this.refill()
-    return this.tokens >= 1
-  }
-
   private refill() {
     const now = Date.now()
     const elapsed = now - this.lastRefillAt

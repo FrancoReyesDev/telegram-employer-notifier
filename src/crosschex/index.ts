@@ -98,25 +98,10 @@ export const getAllRecords = async (
   return all
 }
 
-export const hasTokenAvailable = async (env: Env): Promise<boolean> =>
-  getStub(env).hasToken()
-
 export const parseWebhookPayload = (body: unknown): AttendanceRecord | null => {
-  const data = body as { payload?: AttendanceRecord }
-  return data?.payload ?? null
+  const record = (body as { payload?: AttendanceRecord })?.payload
+  if (!record?.uuid || !record.checktime || !record.employee?.workno) return null
+  return record
 }
-
-export const formatTime = (iso: string): string => {
-  const date = new Date(iso)
-  return date.toLocaleTimeString("es-AR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "America/Argentina/Buenos_Aires",
-  })
-}
-
-export const checkLabel = (checktype: number): string =>
-  checktype === 129 ? "salida" : "entrada"
 
 export type { AttendanceRecord }
