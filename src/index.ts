@@ -6,7 +6,7 @@ import { localTime } from "./attendance"
 import { saveMarks } from "./marks"
 import { reconcile } from "./reconcile"
 import { matchesSecret } from "./security"
-import { syncPendingDays } from "./sync"
+import { syncAfterBurst, syncPendingDays } from "./sync"
 
 type Bindings = {
   CROSSCHEX_API_URL: string
@@ -39,14 +39,18 @@ app.post("/webhook/crosschex", async (c) => {
   }
 
   // Se guardan antes de responder: si falla, CrossChex reintenta
-  await saveMarks(c.env.DB, records, "webhook")
+  const { inserted, lastRowId } = await saveMarks(c.env.DB, records, "webhook")
   records.forEach(({ employee, checktime }) =>
     console.log(`fichaje: ${employee.first_name} ${employee.last_name} (${employee.workno}) ${localTime(checktime)}`),
   )
   // Despues de responder se pasa a Odoo; si Odoo falla, queda pendiente para el proximo fichaje
-  c.executionCtx.waitUntil(
-    syncPendingDays(c.env).catch((error: unknown) => console.error(`odoo: no se pudo sincronizar: ${String(error)}`)),
-  )
+  if (inserted) {
+    c.executionCtx.waitUntil(
+      syncAfterBurst(c.env, lastRowId).catch((error: unknown) =>
+        console.error(`odoo: no se pudo sincronizar: ${String(error)}`),
+      ),
+    )
+  }
   return c.json({ code: "200", msg: "success" })
 })
 

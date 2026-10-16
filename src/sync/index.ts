@@ -1,6 +1,6 @@
 import { attendancesForDay, closeForgotten, dayRangeUtc, fromOdooDatetime, localDate, scheduledEnd } from "../attendance"
 import type { ScheduleLine } from "../attendance"
-import { getDayMarks, getEmployeeName, getPendingDays, markSynced } from "../marks"
+import { getDayMarks, getEmployeeName, getPendingDays, hasNewerMarks, markSynced } from "../marks"
 import type { StoredMark } from "../marks"
 import { callOdoo } from "../odoo"
 import type { OdooEnv } from "../odoo"
@@ -27,6 +27,9 @@ type OdooEmployee = {
 
 // Pocos dias por fichaje para no pasarse del tiempo que tiene el Worker despues de responder
 const DAYS_PER_RUN = 10
+
+// Las rafagas de CrossChex (dobles toques, reintentos, marcas atrasadas) duran unos 6 segundos
+const BURST_WINDOW_MS = 10_000
 
 // Las asistencias las crea el Worker: sin mensajes de seguimiento en el chatter
 const QUIET_CONTEXT = { context: { tracking_disable: true } }
@@ -151,4 +154,12 @@ export const syncPendingDays = async (env: SyncEnv) => {
       console.error(`odoo: error en el ${date} del ${workno}: ${detail}`)
     }
   }
+}
+
+// Cada aviso espera a que pase la rafaga y solo el ultimo en llegar sincroniza:
+// asi nunca hay dos procesos rearmando el mismo dia en Odoo a la vez
+export const syncAfterBurst = async (env: SyncEnv, lastRowId: number) => {
+  await new Promise((resolve) => setTimeout(resolve, BURST_WINDOW_MS))
+  if (await hasNewerMarks(env.DB, lastRowId)) return
+  await syncPendingDays(env)
 }

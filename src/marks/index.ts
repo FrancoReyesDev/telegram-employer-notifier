@@ -33,16 +33,23 @@ const insertMark = (db: D1Database, record: AttendanceRecord, source: MarkSource
       new Date().toISOString(),
     )
 
-// Devuelve cuantas marcas eran nuevas: CrossChex reintenta y la consulta a la API repite marcas
-export const saveMarks = async (db: D1Database, records: AttendanceRecord[], source: MarkSource): Promise<number> => {
+type SaveResult = { inserted: number; lastRowId: number }
+
+// Cuantas marcas eran nuevas (CrossChex reintenta y la API repite marcas) y el numero de llegada
+// de la ultima: la fila de la D1 crece con cada insert y no tiene empates como la hora
+export const saveMarks = async (db: D1Database, records: AttendanceRecord[], source: MarkSource): Promise<SaveResult> => {
   const batches = Array.from({ length: Math.ceil(records.length / BATCH_SIZE) }, (_, index) =>
     records.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE),
   )
   const results = await Promise.all(
     batches.map((batch) => db.batch(batch.map((record) => insertMark(db, record, source)))),
   )
-  return results.flat().filter((result) => result.meta.changes === 1).length
+  const inserted = results.flat().filter((result) => result.meta.changes === 1)
+  return { inserted: inserted.length, lastRowId: Math.max(0, ...inserted.map((result) => result.meta.last_row_id)) }
 }
+
+export const hasNewerMarks = async (db: D1Database, rowId: number): Promise<boolean> =>
+  (await db.prepare("SELECT 1 FROM marks WHERE rowid > ? LIMIT 1").bind(rowId).first()) !== null
 
 // Las marcas de un empleado en un dia, en orden
 export const getDayMarks = async (db: D1Database, workno: string, date: string): Promise<StoredMark[]> => {

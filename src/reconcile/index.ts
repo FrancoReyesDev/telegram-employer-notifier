@@ -31,7 +31,7 @@ export const reconcile = async (env: ReconcileEnv) => {
 
   for (const [begin, end] of timeWindows(from, now)) {
     const records = await getAllRecords(env, begin.toISOString(), end.toISOString())
-    const inserted = await saveMarks(env.DB, records, "api")
+    const { inserted } = await saveMarks(env.DB, records, "api")
     console.log(`crosschex: ${records.length} marcas del ${begin.toISOString()} al ${end.toISOString()} (${inserted} nuevas)`)
   }
 }
